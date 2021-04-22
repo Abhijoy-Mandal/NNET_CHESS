@@ -199,10 +199,10 @@ int main(int argc, char* argv[]){
 		if ((curr_error - new_error)/new_error <0.1){
 			LEARNING_RATE*=1.00000005;
 		}
-<<<<<<< HEAD
+
 		//hello
-=======
->>>>>>> 03632368427916a2dba8dc3011285fd3b04f6d25
+		//hello again
+
 		if(new_error > curr_error){
 			break;
 		}
