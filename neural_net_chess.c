@@ -8,19 +8,19 @@
 
 //so gradient descent for handwriting recognition finally!
 
-int MAXSIZE = 1000;
+int MAXSIZE = 5000;
 int NUMPIXELS = 784;
 int MAX_NAME = 128;
 
 
 
-float get_label(char *filename) {
+unsigned char get_label(char *filename) {
  
     char *dash_char = strstr(filename, "-");
-    return (float) atoi(dash_char + 1);
+    return (char) atoi(dash_char + 1);
 }
 
-void load_image(char *filename, float *img) {
+void load_image(char *filename, unsigned char *img) {
     // Open corresponding image file, read in header (which we will discard)
     FILE *f2 = fopen(filename, "r");
     if (f2 == NULL) {
@@ -32,16 +32,15 @@ void load_image(char *filename, float *img) {
 	fscanf(f2, "P2 %d %d 255", &width, &height);
 	for(int i = 0; i < height;i++){
 		for (int j = 0; j<width; j++){
-			unsigned char val;
-			fscanf(f2, "%hhu", &val);
-			img[i*width + j] = (float)val/255.0;
+			//unsigned char val;
+			fscanf(f2, "%hhu", &img[i*width + j]);
 		}
 	}
 
     fclose(f2);
 }
 
-int loadDataset(char* file_name, float dataset[MAXSIZE][NUMPIXELS], float* labels){
+int loadDataset(char* file_name, unsigned char dataset[MAXSIZE][NUMPIXELS], signed char* labels){
 	
 	FILE *f1 = fopen(file_name, "r");
     if (f1 == NULL) {
@@ -58,14 +57,14 @@ int loadDataset(char* file_name, float dataset[MAXSIZE][NUMPIXELS], float* label
 		}
 		
 		load_image(line, dataset[i]);
-		labels[i] = get_label(line);
+		labels[i] = get_label(line) - 5;
 		count+=1;
 	}
     fclose(f1);
     return count;
 }
 
-float* multiply(float* x, float img[MAXSIZE][NUMPIXELS], int rows){
+float* multiply(double* x, unsigned char img[MAXSIZE][NUMPIXELS], int rows){
 	float* ret_ptr = malloc(rows*sizeof(float));
 	for(int i = 0; i< rows; i++){
 		float sum = 0.0;
@@ -79,7 +78,7 @@ float* multiply(float* x, float img[MAXSIZE][NUMPIXELS], int rows){
 }
 
 //calculates the error in prediction by calculating RS error of all predictions in the dataset
-float root_square_error(float* x, float* y, int size){
+float root_square_error(float* x, signed char* y, int size){
 	double dst_sq = 0.0;
 	for (int i = 0; i < size; i++){
 		dst_sq += (x[i]-y[i])*(x[i]-y[i]);
@@ -87,7 +86,7 @@ float root_square_error(float* x, float* y, int size){
     return (float) sqrt(dst_sq);
 }
 
-float* gradient_cal(float* actual, float* prediction, float x[MAXSIZE][NUMPIXELS], int size){
+float* gradient_cal(signed char* actual, float* prediction, unsigned char x[MAXSIZE][NUMPIXELS], int size){
 	
 	float* grad_ptr = malloc(NUMPIXELS*sizeof(float));
 	
@@ -102,7 +101,7 @@ float* gradient_cal(float* actual, float* prediction, float x[MAXSIZE][NUMPIXELS
 }
 	
 //y is the actual values of the labels, x is the training dataset, size is the number of imgaes in s	
-float gradient_descent(float* coeff, float x[MAXSIZE][NUMPIXELS], float* y, int size, float lr){
+float gradient_descent(double* coeff, unsigned char x[MAXSIZE][NUMPIXELS], signed char* y, int size, double lr){
 	
 	
 	float* pred_y = multiply(coeff, x, size);
@@ -112,20 +111,34 @@ float gradient_descent(float* coeff, float x[MAXSIZE][NUMPIXELS], float* y, int 
 	for(int i = 0; i<NUMPIXELS; i++){
 		coeff[i] -= lr*gradient[i];
 	}
-	float error = root_square_error(y, pred_y, size);
+	free(gradient);
+	
+	float error = root_square_error(pred_y, y, size);
+	free(pred_y);
 	return error;
 }
 
-void test(float* coeff, float data[MAXSIZE][NUMPIXELS], float* labels, int size){
+void test(double* coeff, unsigned char data[MAXSIZE][NUMPIXELS], signed char* labels, int size){
 	int num_correct = 0;
 	float* pred_y = multiply(coeff, data, size);
 	for(int i = 0; i<size; i++){
-		if(round(pred_y[i])==(int)labels[i]){
+		if(round(pred_y[i])==(int)(labels[i])){
 			num_correct+=1;
 		}
 	}
 	float accuracy = (float)num_correct/size;
+	if(accuracy > 0.845){
+		FILE *fp = fopen("H_recog_coeff.txt", "w");
+		for (int i = 0; i<NUMPIXELS; i++){
+			fprintf(fp, "%f\n", coeff[i]);
+		}
+		fclose(fp);
+		
+		exit(1);
+		
+	}
 	printf("accuracy: %f\n", accuracy);
+	free(pred_y);
 }
 	
 	
@@ -148,20 +161,20 @@ int main(int argc, char* argv[]){
 		then the training dataset and test dataset
 		
 	*/
-	float LEARNING_RATE = 0.00002;
+	double LEARNING_RATE = 0.00000000003;
 	
-	float training[MAXSIZE][NUMPIXELS];
+	unsigned char training[MAXSIZE][NUMPIXELS];
 
-	float testing[MAXSIZE][NUMPIXELS];
-	float training_labels[MAXSIZE];
-	float testing_labels[MAXSIZE];
+	unsigned char testing[MAXSIZE][NUMPIXELS];
+	signed char training_labels[MAXSIZE];
+	signed char testing_labels[MAXSIZE];
 	
 	char* endptr;
 	//number of features, also the same as the number of pixels
 	
 	int n = strtol(argv[1], &endptr, 10);
 	
-	float *regression_coefficients = malloc(n*sizeof(float));
+	double *regression_coefficients = malloc(n*sizeof(double));
 	if(endptr == argv[1]){
 		printf("expecting number");
 		exit(1);
@@ -182,27 +195,33 @@ int main(int argc, char* argv[]){
 	*/
 	
 	for (int i = 0; i<n ; i++){
-		regression_coefficients[i] = 1;
+		//regression_coefficients[i] = 0.5 - (float)(rand()%1000)/1000.0;
+		//printf("%f\n", regression_coefficients[i]);
+		regression_coefficients[i] = 0;
 	}
 	
+	printf("loading training dataset...\n");
 	int training_size = loadDataset(argv[2], training, training_labels); //3rd argument is the file containing list of training dataset
+	printf("loading testing dataset...\n");
 	int testing_size = loadDataset(argv[3], testing, testing_labels); //4th argument is the file containing testing dataset
 	if (testing_size == 0){
 		printf("%d\n", training_size);
 		exit(1);
 	}
+	printf("calculatin error\n");
 	float curr_error = gradient_descent(regression_coefficients, training, training_labels, training_size, LEARNING_RATE);
-	while(curr_error > 30){
-		
-		printf("%f\n", curr_error);
+	while(curr_error > 3){
+		test(regression_coefficients, testing, testing_labels, testing_size);
+		//printf("%f\n", curr_error);
 		float new_error = gradient_descent(regression_coefficients, training, training_labels, training_size, LEARNING_RATE);
-		if ((curr_error - new_error)/new_error <0.1){
-			LEARNING_RATE*=1.00000005;
+		//printf("%f\n", new_error);
+		if ((curr_error - new_error)/new_error >0.1){
+			LEARNING_RATE*=0.999995;
 		}
 
 		//hello
 		//hello again
-
+		
 		if(new_error > curr_error){
 			break;
 		}
