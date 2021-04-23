@@ -50,6 +50,7 @@ int loadDataset(char* file_name, unsigned char dataset[MAXSIZE][NUMPIXELS], sign
     }
 	int count = 0;
 	char line[MAX_NAME+1];
+	int label_count[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	for (int i = 0;i<MAXSIZE; i++){
 		if(fscanf(f1, "%s", line)!=1){
 			
@@ -57,10 +58,15 @@ int loadDataset(char* file_name, unsigned char dataset[MAXSIZE][NUMPIXELS], sign
 		}
 		
 		load_image(line, dataset[i]);
-		labels[i] = get_label(line) - 5;
+		unsigned char label = get_label(line);
+		labels[i] = label - 5;
+		label_count[label]+=1;
 		count+=1;
 	}
     fclose(f1);
+	for(int i = 0; i< 10; i++){
+		printf("%d: %d\n", i, label_count[i]);
+	}
     return count;
 }
 
@@ -166,8 +172,8 @@ void test(double coeff[10][784], unsigned char data[MAXSIZE][NUMPIXELS], signed 
 		
 	}
 	*/
-	printf("Total correct: %d\n", num_correct);
-	printf("Total data: %d\n", size);
+	//printf("Total correct: %d\n", num_correct);
+	//printf("Total data: %d\n", size);
 	printf("accuracy: %f\n", accuracy);
 }
 	
@@ -191,7 +197,7 @@ int main(int argc, char* argv[]){
 		then the training dataset and test dataset
 		
 	*/
-	double LEARNING_RATE = 0.0000000003;
+	double LEARNING_RATE = 0.000000000003; //0.0000000003 is a good rate for 1k dataset, 0.000000000003 is a good learning rate for 5k dataset
 	
 	unsigned char training[MAXSIZE][NUMPIXELS];
 
@@ -226,7 +232,7 @@ int main(int argc, char* argv[]){
 	
 	for (int i = 0; i<10 ; i++){
 		for(int j = 0; j<784; j++){
-			//regression_coefficients[i] = 0.5 - (float)(rand()%1000)/1000.0;
+			//regression_coefficients[i][j] = 0.5 - (float)(rand()%1000)/1000.0;
 			//printf("%f\n", regression_coefficients[i]);
 			regression_coefficients[i][j] = 0;
 		}
@@ -259,7 +265,7 @@ int main(int argc, char* argv[]){
 		
 		curr_error = new_error;
 		*/
-		
+		/*
 		print_menu();
 		char option;
 		scanf("%c", &option);
@@ -277,7 +283,11 @@ int main(int argc, char* argv[]){
 			exit(0);
 		}
 		else{continue;}
-		
+		*/
+		for(int i = 0; i<10; i++){
+			float err = gradient_descent(regression_coefficients[i], training, training_labels, training_size, LEARNING_RATE, i);
+		}
+		test(regression_coefficients, testing, testing_labels, testing_size);
 	}
 	test(regression_coefficients, testing, testing_labels, testing_size);
 	test(regression_coefficients, training, training_labels, training_size);
