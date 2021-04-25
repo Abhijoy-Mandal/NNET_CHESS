@@ -8,7 +8,7 @@
 
 //so gradient descent for handwriting recognition finally!
 
-int MAXSIZE = 5000;
+int MAXSIZE = 5250;
 int NUMPIXELS = 784;
 int MAX_NAME = 128;
 
@@ -34,6 +34,7 @@ void load_image(char *filename, unsigned char *img) {
 		for (int j = 0; j<width; j++){
 			//unsigned char val;
 			fscanf(f2, "%hhu", &img[i*width + j]);
+			img[i*width + j] = img[i*width + j]/128;
 		}
 	}
 
@@ -159,7 +160,7 @@ void test(double coeff[10][784], unsigned char data[MAXSIZE][NUMPIXELS], signed 
 			num_correct++;
 		}
 	}
-	float accuracy = (float)num_correct/size;
+	float accuracy = (float)num_correct/size*100;
 	/*
 	if(accuracy > 0.845){
 		FILE *fp = fopen("H_recog_coeff.txt", "w");
@@ -174,7 +175,7 @@ void test(double coeff[10][784], unsigned char data[MAXSIZE][NUMPIXELS], signed 
 	*/
 	//printf("Total correct: %d\n", num_correct);
 	//printf("Total data: %d\n", size);
-	printf("accuracy: %f\n", accuracy);
+	printf("accuracy: %3f \n", accuracy);
 }
 	
 	
@@ -197,8 +198,9 @@ int main(int argc, char* argv[]){
 		then the training dataset and test dataset
 		
 	*/
-	double LEARNING_RATE = 0.000000000003; //0.0000000003 is a good rate for 1k dataset, 0.000000000003 is a good learning rate for 5k dataset
+	double LEARNING_RATE = 0.000003; //0.0000000003 is a good rate for 1k dataset, 0.000000000003 is a good learning rate for 5k dataset
 	
+	//0.000003 is good for normalised data of any size
 	unsigned char training[MAXSIZE][NUMPIXELS];
 
 	unsigned char testing[MAXSIZE][NUMPIXELS];
@@ -288,6 +290,7 @@ int main(int argc, char* argv[]){
 			float err = gradient_descent(regression_coefficients[i], training, training_labels, training_size, LEARNING_RATE, i);
 		}
 		test(regression_coefficients, testing, testing_labels, testing_size);
+		//test(regression_coefficients, training, training_labels, training_size);
 	}
 	test(regression_coefficients, testing, testing_labels, testing_size);
 	test(regression_coefficients, training, training_labels, training_size);
