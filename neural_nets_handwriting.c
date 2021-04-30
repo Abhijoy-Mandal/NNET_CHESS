@@ -114,6 +114,16 @@ float* gradient_cal(signed char* actual, float* prediction, unsigned char x[MAXS
 		}
 		grad_ptr[j] = del_E_j;
 	}
+	
+	float norm = 0.0;
+	for(int i = 0; i<NUMPIXELS; i++){
+		norm += grad_ptr[i]*grad_ptr[i];
+	}
+	norm = sqrt(norm);
+	for(int i = 0; i<NUMPIXELS; i++){
+		grad_ptr[i] = grad_ptr[i]/norm;
+	}
+	
 	return grad_ptr;
 }
 	
@@ -198,9 +208,10 @@ int main(int argc, char* argv[]){
 		then the training dataset and test dataset
 		
 	*/
-	double LEARNING_RATE = 0.000003; //0.0000000003 is a good rate for 1k dataset, 0.000000000003 is a good learning rate for 5k dataset
+	double LEARNING_RATE = 0.001; //0.0000000003 is a good rate for 1k dataset, 0.000000000003 is a good learning rate for 5k dataset
 	
 	//0.000003 is good for normalised data of any size
+	//0.003 is good for normalised gradients.
 	unsigned char training[MAXSIZE][NUMPIXELS];
 
 	unsigned char testing[MAXSIZE][NUMPIXELS];
@@ -289,8 +300,8 @@ int main(int argc, char* argv[]){
 		for(int i = 0; i<10; i++){
 			float err = gradient_descent(regression_coefficients[i], training, training_labels, training_size, LEARNING_RATE, i);
 		}
-		test(regression_coefficients, testing, testing_labels, testing_size);
-		//test(regression_coefficients, training, training_labels, training_size);
+		//test(regression_coefficients, testing, testing_labels, testing_size); //close to 80% on testing data
+		test(regression_coefficients, training, training_labels, training_size); // close to 99.5% on training data
 	}
 	test(regression_coefficients, testing, testing_labels, testing_size);
 	test(regression_coefficients, training, training_labels, training_size);
