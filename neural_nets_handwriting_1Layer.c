@@ -40,7 +40,7 @@ void load_image(char *filename, unsigned char *img) {
 
     fclose(f2);
 }
-
+/*
 int loadDataset(char* file_name, unsigned char dataset[MAXSIZE][NUMPIXELS], signed char* labels){
 	
 	FILE *f1 = fopen(file_name, "r");
@@ -70,8 +70,51 @@ int loadDataset(char* file_name, unsigned char dataset[MAXSIZE][NUMPIXELS], sign
 	}
     return count;
 }
+*/
+int loadDataset(char* file_name, unsigned char **dataset, signed char* labels){
+	
+	FILE *f1 = fopen(file_name, "r");
+    if (f1 == NULL) {
+		
+        perror("fopen: loadDataset");
+        exit(1);
+    }
+	int count = 0;
+	char line[MAX_NAME+1];
+	int label_count[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	for (int i = 0;i<MAXSIZE; i++){
+		if(fscanf(f1, "%s", line)!=1){
+			
+			break;
+		}
+		
+		load_image(line, dataset[i]);
+		unsigned char label = get_label(line);
+		labels[i] = label - 5;
+		label_count[label]+=1;
+		count+=1;
+	}
+    fclose(f1);
+	for(int i = 0; i< 10; i++){
+		printf("%d: %d\n", i, label_count[i]);
+	}
+    return count;
+}
 
-float* multiply(double* x, unsigned char img[MAXSIZE][NUMPIXELS], int rows){
+float* multiply(double* x, unsigned char **img, int rows, int cols){
+	float* ret_ptr = malloc(rows*sizeof(float));
+	for(int i = 0; i< rows; i++){
+		float sum = 0.0;
+		for(int j = 0; j<cols; j++){
+			sum+= x[j]*img[i][j];
+		}
+		ret_ptr[i] = sum;
+	}
+	return ret_ptr;
+	
+}
+/*
+float* multiply(double* x, double* y, int rows){
 	float* ret_ptr = malloc(rows*sizeof(float));
 	for(int i = 0; i< rows; i++){
 		float sum = 0.0;
@@ -81,9 +124,8 @@ float* multiply(double* x, unsigned char img[MAXSIZE][NUMPIXELS], int rows){
 		ret_ptr[i] = sum;
 	}
 	return ret_ptr;
-	
 }
-
+*/
 //calculates the error in prediction by calculating RS error of all predictions in the dataset
 float root_square_error(float* x, signed char* y, int size, int true){
 	double dst_sq = 0.0;
@@ -98,11 +140,25 @@ float root_square_error(float* x, signed char* y, int size, int true){
     return (float) sqrt(dst_sq);
 }
 
-float* gradient_cal(signed char* actual, float* prediction, unsigned char x[MAXSIZE][NUMPIXELS], int size, int true){
+float* gradient_hidden(float* req, float* pred, float** hidden_data, int col){
 	
-	float* grad_ptr = malloc(NUMPIXELS*sizeof(float));
+	float* grad_ptr = malloc(LAYER1*sizeof(float));
 	
-	for(int j = 0; j<NUMPIXELS; j++){
+	for(int j = 0; j<LAYER1; j++){
+		float del_E_j = 0;
+		for(int i = 0; i<col; i++){
+			del_E_j += 2*hidden_data[i][j]*(pred[i] - req[i]);
+		}
+		grad_ptr[j] = del_E_j;
+	}
+	return grad_ptr;
+}
+
+float* gradient_cal(signed char* actual, float* prediction, unsigned char **x, int size, int true){
+	
+	float* grad_ptr = malloc(LAYER2*sizeof(float));
+	
+	for(int j = 0; j<LAYER2; j++){
 		float del_E_j = 0;
 		for(int i = 0; i<size; i++){
 			if(true - 5 == actual[i]){
@@ -118,36 +174,46 @@ float* gradient_cal(signed char* actual, float* prediction, unsigned char x[MAXS
 }
 	
 //y is the actual values of the labels, x is the training dataset, size is the number of imgaes in s	
-float gradient_descent(double* coeff, unsigned char x[MAXSIZE][NUMPIXELS], signed char* y, int size, double lr, int true_label){
+float gradient_descent(double* coeff, unsigned char **x, signed char* y, int size, double lr, int true_label, int layer){
 	
 	
-	float* pred_y = multiply(coeff, x, size);
+	float* pred_y = multiply(coeff, x, size, layer);
 	
-	float* gradient = gradient_cal(y, pred_y, x, size, true_label);
+	float* gradient = gradient_hidden(y, pred_y, x, size, true_label);
 	
-	for(int i = 0; i<NUMPIXELS; i++){
+	for(int i = 0; i<layer; i++){
 		coeff[i] -= lr*gradient[i];
 	}
 	free(gradient);
 	
-	float error = root_square_error(pred_y, y, size, true_label);
+	//float error = root_square_error(pred_y, y, size, true_label);
 	//printf("error: %f", error);
 	free(pred_y);
-	return error;
+	return 0.0;
+	//return error;
 }
 
-void test(double coeff[10][784], unsigned char data[MAXSIZE][NUMPIXELS], signed char* labels, int size){
+void test(double **coeff1, double** coeff2 unsigned char **data, signed char* labels, int size){
 	int num_correct = 0;
 	
 	for(int i = 0; i<size; i++){
 		
+		float second_layer[LAYER2];
+		for(int k = 0; k<LAYER2; k++){
+			float sum = 0;
+			for(int j = 0; j<LAYER1; j++){
+				sum+= coeff1[k][j]*data[i][j];
+			}
+			second_layer[k] = sum;
+		}
+		
 		int max_label = 0;
 		float max_sum = 0;
-		for(int k = 0; k<10; k++){
+		for(int k = 0; k<LAYER3; k++){
 			
 			float sum = 0;
-			for (int j = 0; j< NUMPIXELS; j++){
-				sum+= data[i][j]*coeff[k][j];
+			for (int j = 0; j< LAYER2; j++){
+				sum+= second_layer[j]*coeff2[k][j];
 			}
 			if (sum > max_sum){
 				max_label = k;
@@ -177,8 +243,38 @@ void test(double coeff[10][784], unsigned char data[MAXSIZE][NUMPIXELS], signed 
 	//printf("Total data: %d\n", size);
 	printf("accuracy: %f\n", accuracy);
 }
-	
-	
+
+void calculate_hidden_layer(float** ret_layer, double** coeff, unsigned char** data, int size){
+		
+	for(int j = 0; j<LAYER2; j++){
+		float* col = multiply(coeff[j], data);
+		for(int i = 0; i<size; i++){
+			ret_layer[i][j] = col[i];
+		}
+		free(col);
+	}
+}		
+
+void get_req_hidden_layer(float** ret_layer, double** coeff, signed char* label, int size){
+	for(int i = 0; j<size; j++){
+		int index = 5+label[i];
+		float max_weight=0.0;
+		for(int j = 0; j<LAYER2; j++){
+			if(coeff[index][j] > max_weight){
+				max_weight = coeff[index][j];
+			}
+		}
+		for(int j = 0; j<LAYER2; j++){
+			if(coeff[index][j] >=0){
+				ret_layer[i][j] = coeff[index][j]/max_weight;
+			}
+			else{
+				ret_layer[i][j] = 0;
+			}
+		}
+	}
+}
+
 void print_menu(){
 	printf("1. continue \n");
 	printf("2. test accuracy \n");
@@ -214,9 +310,17 @@ int main(int argc, char* argv[]){
 		printf("expecting number");
 		exit(1);
 	}
-	unsigned char* training = malloc(tr_size*sizeof(unsigned char *));
+	unsigned char** training = malloc(tr_size*sizeof(unsigned char *));
+	if(training == NULL){
+		fprintf(stderr, "malloc training:");
+		exit(1);
+	}
 	for(int i = 0; i<tr_size; i++){
 		training[i] = malloc(n*sizeof(unsigned char));
+		if(training[i] == NULL){
+			fprintf(stderr, "malloc training[%d]:", i);
+			exit(1);
+		}
 	}
 	
 	int te_size = strtol(argv[5], &endptr, 10);
@@ -224,14 +328,22 @@ int main(int argc, char* argv[]){
 		printf("expecting number");
 		exit(1);
 	}
-	unsigned char* testing = malloc(te_size*sizeof(unsigned char *));
-	for(int i = 0; i<tr_size; i++){
+	unsigned char** testing = malloc(te_size*sizeof(unsigned char *));
+	if(testing == NULL){
+		fprintf(stderr, "malloc testing:");
+		exit(1);
+	}
+	for(int i = 0; i<te_size; i++){
 		testing[i] = malloc(n*sizeof(unsigned char));
+		if(training == NULL){
+			fprintf(stderr, "malloc testing[%d]:", i);
+			exit(1);
+		}
 	}
 	
-	double *regression_coefficients1 = malloc(LAYER2*sizeof(double*));
-	for(int i = 0; i<tr_size; i++){
-		regression_coefficients1[i] = malloc(LAYER1*sizeof(unsigned char));
+	double **regression_coefficients1 = malloc(LAYER2*sizeof(double*));
+	for(int i = 0; i<LAYER2; i++){
+		regression_coefficients1[i] = malloc(LAYER1*sizeof(double));
 	}
 	
 	for (int i = 0; i<LAYER2 ; i++){
@@ -241,6 +353,33 @@ int main(int argc, char* argv[]){
 			regression_coefficients1[i][j] = 0;
 		}
 	}
+	
+	double **regression_coefficients2 = malloc(LAYER3*sizeof(double*));
+	for(int i = 0; i<LAYER3; i++){
+		regression_coefficients1[i] = malloc(LAYER2*sizeof(double));
+	}
+	
+	for (int i = 0; i<LAYER3 ; i++){
+		for(int j = 0; j<LAYER2; j++){
+			//regression_coefficients[i][j] = 0.5 - (float)(rand()%1000)/1000.0;
+			//printf("%f\n", regression_coefficients[i]);
+			regression_coefficients2[i][j] = 0;
+		}
+	}
+	
+	float **hidden_Layer = malloc(tr_size*sizeof(float*));
+	for(int i = 0; i<tr_size; i++){
+		hidden_Layer[i] = malloc(LAYER2*sizeof(float));
+	}
+	
+	calculate_hidden_layer(hidden_Layer, regression_coefficients1, training, tr_size);
+	
+	float **req_hidden_Layer = malloc(tr_size*sizeof(float*));
+	for(int i = 0; i<tr_size; i++){
+		req_hidden_Layer[i] = malloc(LAYER2*sizeof(float));
+	}
+	
+	
 	
 	printf("loading training dataset...\n");
 	int training_size = loadDataset(argv[2], training, training_labels); //3rd argument is the file containing list of training dataset
@@ -288,13 +427,21 @@ int main(int argc, char* argv[]){
 		}
 		else{continue;}
 		*/
-		for(int i = 0; i<10; i++){
-			float err = gradient_descent(regression_coefficients[i], training, training_labels, training_size, LEARNING_RATE, i);
+		for(int i = 0; i<LAYER3; i++){
+			float err = gradient_descent(regression_coefficients2[i], hidden_Layer, training_labels, training_size, LEARNING_RATE, i, LAYER2);
 		}
-		test(regression_coefficients, testing, testing_labels, testing_size);
+		
+		
+		get_req_hidden_layer(req_hidden_Layer, regression_coefficients2, training_labels, tr_size);
+		
+		for(int i = 0; i<LAYER2; i++){
+			float err = gradient_descent(regression_coefficients1[i], training, req_hidden_Layer, training_size, LEARNING_RATE, i, LAYER1);
+		}
+		calculate_hidden_layer(hidden_Layer, regression_coefficients1, training, tr_size);
+		//test(regression_coefficients, testing, testing_labels, testing_size);
 	}
-	test(regression_coefficients, testing, testing_labels, testing_size);
-	test(regression_coefficients, training, training_labels, training_size);
+	test(regression_coefficients1, regression_coefficients2, testing, testing_labels, testing_size);
+	test(regression_coefficients1, regression_coefficients2, training, training_labels, training_size);
 	return 1;
 }
 /*
